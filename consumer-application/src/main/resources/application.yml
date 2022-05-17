@@ -1,0 +1,130 @@
+server:
+  port: 9000
+---
+spring:
+  cloud:
+    stream:
+      gcp:
+        pubsub:
+          bindings:
+            eventPubsubProductSave-in-0:
+              consumer:
+                auto-create-resources: false
+            eventStockReserve-in-0:
+              consumer:
+                auto-create-resources: false
+      rabbit:
+        bindings:
+          product-rabbit:
+            consumer:
+              bind-queue: false
+              acknowledge-mode: AUTO
+            #dlx/dlq setup
+            #auto-bind-dlq: true
+            #dlq-ttl: 5000
+            #dlq-dead-letter-exchange:
+            #        output:
+            #          destination: create_product_q
+            #          binder: local.example.product.create
+      function:
+        definition: eventPubsubProductSave;eventProductSave;eventStockReserve
+      bindings:
+        eventPubsubProductSave-in-0:
+          destination: product-local-created
+          group: product-local-subscriber
+          binder: local_pubsub
+          consumer:
+            max-attempts: 3
+        eventProductSave-in-0:
+          destination: local.product-exchange
+          group: create_product_q
+          binder: local_rabbit
+          consumer:
+            max-attempts: 3
+        eventStockReserve-in-0:
+          destination: stock-local-reserve-sub
+          group:  stock-local-reserve
+          binder: local_pubsub
+          consumer:
+            max-attempts: 3
+      binders:
+        local_rabbit:
+          type: rabbit
+          default-candidate: false
+        local_pubsub:
+          type: pubsub
+          default-candidate: true
+---
+spring:
+  cloud:
+    gcp:
+      pubsub:
+        project-id:  "${GOOGLE_PROJECT_ID}"
+        credentials:
+          location: 'classpath:${GOOGLE_CREDENTIALS}'
+      config:
+        enabled: false
+---
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: user
+    password: password
+---
+management:
+  endpoints:
+    web:
+      base-path: /
+      path-mapping:
+        prometheus: /metrics
+      exposure:
+        include:
+          - health
+          - info
+          - metrics
+          - prometheus
+        exclude:
+---
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/product-db
+---
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:4432/product
+    username: postgres
+    password: pwd0123456789
+    pool:
+      initial-size: 1
+      max-idle-time: 30s
+      max-size: 5
+      validation-query: "SELECT 1"
+      max-create-connection-time: 30s
+---
+inventory:
+  auth-basic: ${INVENTORY_AUTH}
+  uri: ${INVENTORY_URI}
+---
+#gcp:
+#  pubsub:
+#    error:
+#      topic: error-event-local
+---
+feign:
+  client:
+    config:
+      car-service:
+        connectTimeout: 5000
+        readTimeout: 5000
+        loggerLevel: basic
+---
+retry:
+  backoff: 5000
+  max-attempts: 3
+
+circuit-breaker:
+  open-timeout: 10000
+  reset-timeout: 30000
+  max-attempts: 3

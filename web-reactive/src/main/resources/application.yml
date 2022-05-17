@@ -1,0 +1,78 @@
+server:
+  port: ${APP_PORT}
+---
+spring:
+  application:
+    name: web-reactive
+---
+info:
+  project:
+    version: 1.0.0
+---
+spring:
+  cloud:
+    gcp:
+      pubsub:
+        project-id: "${GOOGLE_PROJECT_ID}"
+        credentials:
+          location: 'classpath:${GOOGLE_CREDENTIALS}'
+        product:
+          topic: "${GOOGLE_TOPIC}"
+        inventory:
+          topic: "${GOOGLE_INVENTORY_TOPIC}"
+    config:
+      enabled: false
+---
+spring:
+  datasource:
+    url: jdbc:h2:mem:product-db
+    driverClassName: org.h2.Driver
+    username: sa
+    password: 12345
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    ddl-auto: create-drop
+    show-sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      trace: false
+      settings:
+        web-allow-others: false
+---
+product:
+  auth-basic: ${PRODUCT_AUTH}
+  uri: ${PRODUCT_URI}
+inventory:
+  auth-basic: ${INVENTORY_AUTH}
+  uri: ${INVENTORY_URI}
+---
+management:
+  endpoints:
+    web:
+      base-path: /
+      path-mapping:
+        prometheus: /metrics
+      exposure:
+        include:
+          - health
+          - info
+          - metrics
+          - prometheus
+        exclude:
+---
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: rabbitmq
+    virtual-host: /
+    connection-timeout: 60s
+---
+rabbitmq:
+  routing-key: local.example.product.create
+  topic-exchange: dad.product.tx
+  queue: product_create_q
+---
